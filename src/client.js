@@ -1,95 +1,94 @@
-let pc = null;
-let ws = null;
-
-function log(msg) {
-    console.log(msg);
-}
+let socket;
+let peerConnection;
+let dc = null;
 
 function createConnection() {
-    const useStun = document.getElementById('use-stun').checked;
-    const config = {
-        sdpSemantics: 'unified-plan',
-        iceServers: useStun ? [{ urls: 'stun:stun.l.google.com:19302' }] : [],
+    const wsUrl = 'wss://' + window.location.host + '/ws';
+    console.log('Connecting to WebSocket:', wsUrl);
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+        console.log('WebSocket connected');
     };
 
-    pc = new RTCPeerConnection(config);
-
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            ws.send(JSON.stringify({ type: "candidate", candidate: event.candidate }));
-        }
+    socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
     };
 
-    pc.ontrack = (event) => {
-        if (event.track.kind === "video") {
-            document.getElementById("video").srcObject = event.streams[0];
-        } else if (event.track.kind === "audio") {
-            document.getElementById("audio").srcObject = event.streams[0];
-        }
+    socket.onclose = () => {
+        console.log('WebSocket closed');
     };
 
-    ws = new WebSocket(`ws://${location.host}/ws`);
-
-    ws.onmessage = async (event) => {
+    socket.onmessage = async (event) => {
         const message = JSON.parse(event.data);
-        log("Received: " + JSON.stringify(message));
+        console.log('Received message:', message);
 
-        if (message.type === "offer") {
-            await pc.setRemoteDescription(new RTCSessionDescription(message));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            ws.send(JSON.stringify(pc.localDescription));
-        } else if (message.type === "answer") {
-            await pc.setRemoteDescription(new RTCSessionDescription(message));
-        } else if (message.type === "candidate") {
+        if (message.sdp) {
             try {
-                await pc.addIceCandidate(message.candidate);
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(message));
+                if (message.type === 'offer') {
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    console.log('Sending SDP answer');
+                    socket.send(JSON.stringify(peerConnection.localDescription));
+                }
             } catch (e) {
-                console.error("Error adding candidate:", e);
+                console.error('SDP error:', e);
+            }
+        } else if (message.candidate) {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+            } catch (e) {
+                console.error('ICE candidate error:', e);
             }
         }
-    };
-
-    ws.onopen = () => {
-        log("WebSocket connected.");
     };
 }
 
 function start() {
-    document.getElementById("start").style.display = "none";
-    document.getElementById("stop").style.display = "inline-block";
+    const useStun = document.getElementById('use-stun').checked;
+    const config = useStun ? { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } : {};
+    console.log('Starting WebRTC with config:', config);
+
+    peerConnection = new RTCPeerConnection(config);
+    const videoElement = document.getElementById('video');
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            console.log('Sending ICE candidate:', event.candidate);
+            socket.send(JSON.stringify({ candidate: event.candidate }));
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        console.log('Received track:', event.track);
+        if (event.streams && event.streams[0]) {
+            videoElement.srcObject = event.streams[0];
+            videoElement.play().catch(e => console.error('Video play error:', e));
+        }
+    };
+
+    peerConnection.ondatachannel = (event) => {
+        dc = event.channel;
+        dc.onmessage = (e) => console.log('Data channel message:', e.data);
+    };
 
     createConnection();
 
-    const localMediaPromise = navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-    localMediaPromise.then((stream) => {
-        for (const track of stream.getTracks()) {
-            pc.addTrack(track, stream);
-        }
-
-        document.getElementById("video").srcObject = stream;
-
-        return pc.createOffer();
-    }).then((offer) => {
-        return pc.setLocalDescription(offer);
-    }).then(() => {
-        ws.send(JSON.stringify(pc.localDescription));
-    }).catch((error) => {
-        alert("Error: " + error);
-    });
+    document.getElementById('start').style.display = 'none';
+    document.getElementById('stop').style.display = '';
 }
 
 function stop() {
-    document.getElementById("stop").style.display = "none";
-
-    if (pc) {
-        pc.close();
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
     }
-
-    if (ws) {
-        ws.close();
+    if (socket) {
+        socket.close();
+        socket = null;
     }
-
-    document.getElementById("start").style.display = "inline-block";
+    document.getElementById('video').srcObject = null;
+    document.getElementById('start').style.display = '';
+    document.getElementById('stop').style.display = 'none';
 }
