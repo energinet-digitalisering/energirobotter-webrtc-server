@@ -76,8 +76,8 @@ After=network.target
 
 [Service]
 User=admin
-WorkingDirectory=/home/admin/energinet/energirobotter-webrtc-server
-ExecStart=/home/admin/energinet/energirobotter-webrtc-server/venv/bin/python /home/admin/energinet/energirobotter-webrtc-server/src/webrtc_signalling_server.py
+WorkingDirectory=/home/admin/energirobotter-webrtc-server
+ExecStart=/home/admin/energirobotter-webrtc-server/venv/bin/python /home/admin/energirobotter-webrtc-server/src/webrtc_signalling_server.py
 Restart=always
 RestartSec=3
 
