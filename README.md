@@ -46,10 +46,17 @@ sudo mkdir /mnt/server/
 sudo chmod 777 /mnt/server/
 ```
 
-Mount the server to that directory:
+Mount the server to that directory (only this line has to be re-run when mounting in the future):
 ```
 sshfs -o allow_other,IdentityFile=~/.ssh/id_ed25519.pub admin@<server_ip>:/home/admin /mnt/server 
 ```
+
+Got to the folder, and clone the directory:
+```
+cd /mnt/server
+git clone git@github.com:energinet-digitalisering/energirobotter-webrtc-server.git
+```
+
 
 
 ### Start Signaling Server on Startup
@@ -69,8 +76,8 @@ After=network.target
 
 [Service]
 User=admin
-WorkingDirectory=/home/admin/energinet/energirobotter-webrtc-server
-ExecStart=/home/admin/energinet/energirobotter-webrtc-server/venv/bin/python /home/admin/energinet/energirobotter-webrtc-server/src/webrtc_signalling_server.py
+WorkingDirectory=/home/admin/energirobotter-webrtc-server
+ExecStart=/home/admin/energirobotter-webrtc-server/venv/bin/python /home/admin/energirobotter-webrtc-server/src/webrtc_signalling_server.py
 Restart=always
 RestartSec=3
 
