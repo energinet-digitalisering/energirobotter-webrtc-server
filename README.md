@@ -46,10 +46,17 @@ sudo mkdir /mnt/server/
 sudo chmod 777 /mnt/server/
 ```
 
-Mount the server to that directory:
+Mount the server to that directory (only this line has to be re-run when mounting in the future):
 ```
 sshfs -o allow_other,IdentityFile=~/.ssh/id_ed25519.pub admin@<server_ip>:/home/admin /mnt/server 
 ```
+
+Got to the folder, and clone the directory:
+```
+cd /mnt/server
+git clone git@github.com:energinet-digitalisering/energirobotter-webrtc-server.git
+```
+
 
 
 ### Start Signaling Server on Startup
